@@ -1,10 +1,9 @@
 import Like from "../models/likeSchema.js"
 
 class LikeClass {
-	createLike = async (req, res, next) => {
+	likeUnlikedPost = async (req, res, next) => {
 		try {
 			const { userId, postId } = req.body
-
 			const existingDoc = await Like.findOne({
 				user_id: userId,
 				post_id: postId,
@@ -15,40 +14,15 @@ class LikeClass {
 					user_id: userId,
 					post_id: postId,
 				})
-				return res.status(201).json({
-					success: true,
-					data: {
-						message: `Like added for post ${postId} by user ${userId}`,
-						response,
-					},
+				res.success(`Post(${postId}) Liked by user ${userId}`, response)
+			} else {
+				const response = await Like.findOneAndDelete({
+					user_id: userId,
+					post_id: postId,
 				})
+				if (response) return res.success("UnLiked post.")
+				return res.error("Unable to unlike post", 412)
 			}
-			res.status(200).json({
-				success: true,
-				data: {
-					message: "Like already present",
-					response: existingDoc,
-				},
-			})
-		} catch (error) {
-			next(error)
-		}
-	}
-
-	deleteLike = async (req, res, next) => {
-		try {
-			const { likeId } = req.params
-			if (!likeId)
-				return res.status(412).json({
-					success: false,
-					data: { error: "likeId required" },
-				})
-			const response = await Like.findOneAndDelete({ _id: likeId })
-
-			res.status(200).json({
-				success: true,
-				data: { message: "Like removed" },
-			})
 		} catch (error) {
 			next(error)
 		}

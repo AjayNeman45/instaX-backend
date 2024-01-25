@@ -1,4 +1,4 @@
-import Comment from "../models/commentScema.js"
+import Comment from "../models/commentSchema.js"
 
 class CommentClass {
 	createComment = async (req, res, next) => {
@@ -10,12 +10,10 @@ class CommentClass {
 				comment: comment,
 			})
 			if (response) {
-				return res
-					.status(201)
-					.json({
-						success: true,
-						data: { message: "comment added", response },
-					})
+				return res.status(201).json({
+					success: true,
+					data: { message: "comment added", response },
+				})
 			}
 			res.status(412).json({
 				success: false,

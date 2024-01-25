@@ -4,7 +4,7 @@ import mongoose from "mongoose"
 import firebaseStorage from "../configs/firbase.config.js"
 import Post from "../models/postSchema.js"
 import Like from "../models/likeSchema.js"
-import Comment from "../models/commentScema.js"
+import Comment from "../models/commentSchema.js"
 
 class postClass {
 	createPost = async (req, res, next) => {
@@ -178,6 +178,14 @@ class postClass {
 				},
 				{
 					$lookup: {
+						from: "saves",
+						localField: "_id",
+						foreignField: "post_id",
+						as: "saves",
+					},
+				},
+				{
+					$lookup: {
 						from: "users", // Assuming there is a 'users' collection referenced in 'postSchema'
 						localField: "user_id",
 						foreignField: "_id",
@@ -208,6 +216,18 @@ class postClass {
 								},
 							},
 						},
+						saves: {
+							$map: {
+								input: "$saves",
+								as: "save",
+								in: {
+									user_id: "$$save.user_id",
+									_id: "$$save._id",
+									// other like fields you want to include
+								},
+							},
+						},
+
 						comments: {
 							$map: {
 								input: "$comments",

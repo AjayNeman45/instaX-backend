@@ -5,7 +5,9 @@ import bodyParser from "body-parser"
 
 import authRouter from "./routes/auth.route.js"
 import postRouter from "./routes/post.route.js"
+import connectionRoute from "./routes/connection.route.js"
 
+import { handleError, handleSuccess } from "./configs/apiResponse.js"
 import connectDB from "./configs/db.config.js"
 
 dotenv.config()
@@ -21,8 +23,12 @@ app.use(
 )
 
 connectDB()
+
+app.use(handleSuccess)
+app.use(handleError)
 app.use("/api/auth", authRouter)
 app.use("/api/post", postRouter)
+app.use("/api/connection", connectionRoute)
 
 app.use((err, req, res, next) => {
 	const errStatus = err.statusCode || 500

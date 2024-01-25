@@ -3,7 +3,6 @@ import postLike from "../controllers/likeController.js"
 
 const router = express()
 
-router.post("/create", postLike.createLike)
-router.get("/delete/:likeId", postLike.deleteLike)
+router.post("/likeUnlike", postLike.likeUnlikedPost)
 
 export default router

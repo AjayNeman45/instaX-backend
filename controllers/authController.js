@@ -2,22 +2,53 @@ import User from "../models/userSchema.js"
 
 const loginUser = async (req, res, next) => {
 	try {
-		let response = await User.findOne({
-			username: req.body.username,
-			password: req.body.password,
+		const { username, password } = req.body
+
+		const user = await User.findOne({
+			username,
+			password,
 		})
+		if (!user) return res.error("User not found", 404)
+
+		const response = await User.aggregate([
+			{
+				$match: {
+					_id: user?._id,
+				},
+			},
+			{
+				$lookup: {
+					from: "followers",
+					localField: "_id",
+					foreignField: "user_id",
+					as: "followers",
+				},
+			},
+			{
+				$lookup: {
+					from: "followings",
+					localField: "_id",
+					foreignField: "user_id",
+					as: "followings",
+				},
+			},
+			{
+				$project: {
+					_id: 1,
+					username: 1,
+					email: 1,
+					name: 1,
+					description: 1,
+					profilePhoto: 1,
+					followers: "$followers.follower_id",
+					followings: "$followings.following_id",
+				},
+			},
+		])
 		if (response) {
-			const newResponse = JSON.parse(JSON.stringify(response))
-			delete newResponse.password
-			return res.status(200).json({
-				success: true,
-				data: { response: newResponse },
-			})
+			return res.success(null, response, 200)
 		}
-		res.status(412).json({
-			success: false,
-			data: { error: "Failed to login" },
-		})
+		res.error("User not found", 404)
 	} catch (error) {
 		next(error)
 	}
