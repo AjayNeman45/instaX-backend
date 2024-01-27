@@ -20,7 +20,8 @@ router.use("/comment", commentRoute)
 router.use("/save", saveRoute)
 router.post("/create", userPost.createPost)
 router.get("/getAllPosts", userPost.getAllPosts)
-router.get("/getPostByUserId/:userId", userPost.getPostByUserId)
+router.get("/getPostByUserId/:userId", userPost.getPostsByUserId)
+router.get("/getSavedPostByUserId/:userId", userPost.getSavedPostsByUserId)
 router.get("/delete/:postId", userPost.deletePost)
 
 export default router

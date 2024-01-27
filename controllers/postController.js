@@ -5,6 +5,7 @@ import firebaseStorage from "../configs/firbase.config.js"
 import Post from "../models/postSchema.js"
 import Like from "../models/likeSchema.js"
 import Comment from "../models/commentSchema.js"
+import Saves from "../models/savePostSchema.js"
 
 class postClass {
 	createPost = async (req, res, next) => {
@@ -283,7 +284,7 @@ class postClass {
 		}
 	}
 
-	getPostByUserId = async (req, res, next) => {
+	getPostsByUserId = async (req, res, next) => {
 		try {
 			const { userId } = req.params
 			if (!userId)
@@ -291,18 +292,11 @@ class postClass {
 					successs: false,
 					data: { error: "userId required" },
 				})
+
 			const response = await Post.aggregate([
 				{
 					$match: {
 						user_id: new mongoose.Types.ObjectId(userId),
-					},
-				},
-				{
-					$lookup: {
-						from: "comments",
-						localField: "_id",
-						foreignField: "post_id",
-						as: "comments",
 					},
 				},
 				{
@@ -315,6 +309,22 @@ class postClass {
 				},
 				{
 					$lookup: {
+						from: "comments",
+						localField: "_id",
+						foreignField: "post_id",
+						as: "comments",
+					},
+				},
+				{
+					$lookup: {
+						from: "saves",
+						localField: "_id",
+						foreignField: "post_id",
+						as: "saves",
+					},
+				},
+				{
+					$lookup: {
 						from: "users", // Assuming there is a 'users' collection referenced in 'postSchema'
 						localField: "user_id",
 						foreignField: "_id",
@@ -322,18 +332,82 @@ class postClass {
 					},
 				},
 				{
+					$lookup: {
+						from: "users",
+						localField: "comments.user_id",
+						foreignField: "_id",
+						as: "commentUsers",
+					},
+				},
+				{
 					$project: {
-						_id: 1,
+						user: { $arrayElemAt: ["$user", 0] },
 						text: 1,
 						image: 1,
+						likes: {
+							$map: {
+								input: "$likes",
+								as: "like",
+								in: {
+									user_id: "$$like.user_id",
+									_id: "$$like._id",
+									// other like fields you want to include
+								},
+							},
+						},
+						saves: {
+							$map: {
+								input: "$saves",
+								as: "save",
+								in: {
+									user_id: "$$save.user_id",
+									_id: "$$save._id",
+									// other like fields you want to include
+								},
+							},
+						},
+
+						comments: {
+							$map: {
+								input: "$comments",
+								as: "comment",
+								in: {
+									user: {
+										$arrayElemAt: [
+											{
+												$filter: {
+													input: "$commentUsers",
+													as: "cu",
+													cond: {
+														$eq: [
+															"$$cu._id",
+															"$$comment.user_id",
+														],
+													},
+												},
+											},
+											0,
+										],
+									},
+									comment: "$$comment.comment",
+									_id: "$$comment._id",
+									createdAt: "$$comment.createdAt",
+									updatedAt: "$$comment.updatedAt",
+									// other comment fields you want to include
+								},
+							},
+						},
 						createdAt: 1,
 						updatedAt: 1,
-						user: { $arrayElemAt: ["$user", 0] }, // Extract the user from the array
-						comments: 1,
-						likes: 1,
+					},
+				},
+				{
+					$sort: {
+						createdAt: -1, // Sort in descending order based on the 'createdAt' field
 					},
 				},
 			])
+
 			if (response) {
 				return res
 					.status(200)
@@ -343,6 +417,136 @@ class postClass {
 				succss: false,
 				data: { error: "No Post found" },
 			})
+		} catch (error) {
+			next(error)
+		}
+	}
+
+	getSavedPostsByUserId = async (req, res, next) => {
+		try {
+			const { userId } = req.params
+			const response = await Saves.aggregate([
+				{
+					$match: {
+						user_id: new mongoose.Types.ObjectId(userId), // Replace with the actual user_id
+					},
+				},
+				{
+					$lookup: {
+						from: "posts", // The name of the posts collection
+						localField: "post_id",
+						foreignField: "_id",
+						as: "saved_posts",
+					},
+				},
+				{
+					$unwind: "$saved_posts", // Unwind the array created by $lookup
+				},
+				{
+					$lookup: {
+						from: "likes",
+						localField: "saved_posts._id",
+						foreignField: "post_id",
+						as: "likes",
+					},
+				},
+				{
+					$lookup: {
+						from: "comments",
+						localField: "saved_posts._id",
+						foreignField: "post_id",
+						as: "comments",
+					},
+				},
+				{
+					$lookup: {
+						from: "users",
+						localField: "user_id", // Assuming "user_id" in "saves" corresponds to "_id" in "user"
+						foreignField: "_id",
+						as: "user",
+					},
+				},
+				{
+					$lookup: {
+						from: "users",
+						localField: "comments.user_id",
+						foreignField: "_id",
+						as: "commentUsers",
+					},
+				},
+				{
+					$lookup: {
+						from: "saves",
+						localField: "saved_posts._id",
+						foreignField: "post_id",
+						as: "saved_users",
+					},
+				},
+				{
+					$project: {
+						_id: "$saved_posts._id",
+						text: "$saved_posts.text", // Include other fields from the posts collection as needed
+						image: "$saved_posts.image",
+						createdAt: "$saved_posts.createdAt",
+						likes: {
+							$map: {
+								input: "$likes",
+								as: "like",
+								in: {
+									user_id: "$$like.user_id",
+									_id: "$$like._id",
+									// other like fields you want to include
+								},
+							},
+						},
+						comments: {
+							$map: {
+								input: "$comments",
+								as: "comment",
+								in: {
+									user: {
+										$arrayElemAt: [
+											{
+												$filter: {
+													input: "$commentUsers",
+													as: "cu",
+													cond: {
+														$eq: [
+															"$$cu._id",
+															"$$comment.user_id",
+														],
+													},
+												},
+											},
+											0,
+										],
+									},
+									comment: "$$comment.comment",
+									_id: "$$comment._id",
+									createdAt: "$$comment.createdAt",
+									updatedAt: "$$comment.updatedAt",
+									// other comment fields you want to include
+								},
+							},
+						},
+						user: { $arrayElemAt: ["$user", 0] },
+						saves: {
+							$map: {
+								input: "$saved_users",
+								as: "su",
+								in: {
+									user_id: "$$su.user_id",
+									_id: "$$su._id",
+									// other like fields you want to include
+								},
+							},
+						},
+						// Add more fields as needed
+					},
+				},
+			])
+
+			res.success("saved posts by userId", response, 200)
 		} catch (error) {
 			next(error)
 		}

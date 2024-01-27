@@ -1,14 +1,18 @@
 import User from "../models/userSchema.js"
+import bcrypt from "bcrypt"
 
 const loginUser = async (req, res, next) => {
 	try {
 		const { username, password } = req.body
 
-		const user = await User.findOne({
-			username,
-			password,
-		})
+		const user = await User.findOne({ username })
 		if (!user) return res.error("User not found", 404)
+
+		const passwordMatch = await bcrypt.compare(password, user.password)
+
+		if (!passwordMatch) {
+			return res.error("Invalid username or password", 401)
+		}
 
 		const response = await User.aggregate([
 			{
@@ -42,6 +46,7 @@ const loginUser = async (req, res, next) => {
 					profilePhoto: 1,
 					followers: "$followers.follower_id",
 					followings: "$followings.following_id",
+					createdAt: 1,
 				},
 			},
 		])
@@ -50,23 +55,64 @@ const loginUser = async (req, res, next) => {
 		}
 		res.error("User not found", 404)
 	} catch (error) {
-		next(error)
+		res.error(error.message, 500)
 	}
 }
 
 const registerUser = async (req, res, next) => {
 	try {
-		const response = await User.create({
+		const { password } = req.body
+		const hashPassword = await bcrypt.hash(password, 10)
+		const createUserResponse = await User.create({
 			username: req.body.username,
-			password: req.body.password,
+			password: hashPassword,
 			description: req.body.description,
 			email: req.body.email,
 			profilePhoto: req.body.profilePhoto,
 			name: req.body.name,
 		})
-		res.send(response)
+		if (createUserResponse) {
+			const response = await User.aggregate([
+				{
+					$match: {
+						_id: createUserResponse?._id,
+					},
+				},
+				{
+					$lookup: {
+						from: "followers",
+						localField: "_id",
+						foreignField: "user_id",
+						as: "followers",
+					},
+				},
+				{
+					$lookup: {
+						from: "followings",
+						localField: "_id",
+						foreignField: "user_id",
+						as: "followings",
+					},
+				},
+				{
+					$project: {
+						_id: 1,
+						username: 1,
+						email: 1,
+						name: 1,
+						description: 1,
+						profilePhoto: 1,
+						followers: "$followers.follower_id",
+						followings: "$followings.following_id",
+						createdAt: 1,
+					},
+				},
+			])
+			res.success("User register successfully", response, 201)
+		} else res.error("Failed to sign up user", 500)
 	} catch (error) {
-		next(error)
+		console.log("sending  ", error.message)
+		res.error(error.message, 500)
 	}
 }
 
@@ -81,10 +127,52 @@ const getAllUsers = async (req, res, next) => {
 
 const getUserById = async (req, res, next) => {
 	try {
-		const response = await User.find({ _id: req.params.id })
-		res.json(response)
+		const { username } = req.params
+
+		const user = await User.findOne({
+			username,
+		})
+		if (!user) return res.error("User not found", 404)
+
+		const response = await User.aggregate([
+			{
+				$match: {
+					username: username,
+				},
+			},
+			{
+				$lookup: {
+					from: "followers",
+					localField: "_id",
+					foreignField: "user_id",
+					as: "followers",
+				},
+			},
+			{
+				$lookup: {
+					from: "followings",
+					localField: "_id",
+					foreignField: "user_id",
+					as: "followings",
+				},
+			},
+			{
+				$project: {
+					_id: 1,
+					username: 1,
+					email: 1,
+					name: 1,
+					description: 1,
+					profilePhoto: 1,
+					followers: "$followers.follower_id",
+					followings: "$followings.following_id",
+					createdAt: 1,
+				},
+			},
+		])
+		if (response) res.success(null, response, 200)
 	} catch (error) {
-		next(error)
+		res.error(error.message, 500)
 	}
 }
 

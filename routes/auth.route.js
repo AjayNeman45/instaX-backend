@@ -11,6 +11,6 @@ const router = express()
 router.post("/login", loginUser)
 router.post("/register", registerUser)
 router.get("/users", getAllUsers)
-router.get("/users/:id", getUserById)
+router.get("/users/:username", getUserById)
 
 export default router
