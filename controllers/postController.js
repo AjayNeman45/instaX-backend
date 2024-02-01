@@ -461,14 +461,6 @@ class postClass {
 				{
 					$lookup: {
 						from: "users",
-						localField: "user_id", // Assuming "user_id" in "saves" corresponds to "_id" in "user"
-						foreignField: "_id",
-						as: "user",
-					},
-				},
-				{
-					$lookup: {
-						from: "users",
 						localField: "comments.user_id",
 						foreignField: "_id",
 						as: "commentUsers",
@@ -480,6 +472,14 @@ class postClass {
 						localField: "saved_posts._id",
 						foreignField: "post_id",
 						as: "saved_users",
+					},
+				},
+				{
+					$lookup: {
+						from: "users",
+						localField: "saved_posts.user_id", // Assuming user_id is a field in the posts collection
+						foreignField: "_id",
+						as: "post_user",
 					},
 				},
 				{
@@ -529,7 +529,6 @@ class postClass {
 								},
 							},
 						},
-						user: { $arrayElemAt: ["$user", 0] },
 						saves: {
 							$map: {
 								input: "$saved_users",
@@ -541,6 +540,7 @@ class postClass {
 								},
 							},
 						},
+						user: { $arrayElemAt: ["$post_user", 0] },
 						// Add more fields as needed
 					},
 				},
