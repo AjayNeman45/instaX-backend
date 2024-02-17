@@ -160,6 +160,8 @@ class postClass {
 
 	getAllPosts = async (req, res, next) => {
 		try {
+			let pageNumber = req.query.page || 0
+			let limit = 10
 			const response = await Post.aggregate([
 				{
 					$lookup: {
@@ -206,6 +208,7 @@ class postClass {
 						user: { $arrayElemAt: ["$user", 0] },
 						text: 1,
 						image: 1,
+						imageHeight: 1,
 						likes: {
 							$map: {
 								input: "$likes",
@@ -268,6 +271,8 @@ class postClass {
 						createdAt: -1, // Sort in descending order based on the 'createdAt' field
 					},
 				},
+				{ $skip: pageNumber * limit },
+				{ $limit: limit },
 			])
 
 			if (response) {
@@ -344,6 +349,7 @@ class postClass {
 						user: { $arrayElemAt: ["$user", 0] },
 						text: 1,
 						image: 1,
+						imageHeight: 1,
 						likes: {
 							$map: {
 								input: "$likes",
@@ -487,6 +493,7 @@ class postClass {
 						_id: "$saved_posts._id",
 						text: "$saved_posts.text", // Include other fields from the posts collection as needed
 						image: "$saved_posts.image",
+						imageHeight: "$saved_posts.imageHeight",
 						createdAt: "$saved_posts.createdAt",
 						likes: {
 							$map: {
